@@ -1,0 +1,157 @@
+.favorites-container {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.favorites-header {
+  margin-bottom: 30px;
+  text-align: center;
+}
+
+.favorites-header h2 {
+  color: #333;
+  font-size: 28px;
+  margin: 0;
+}
+
+.favorites-empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: #666;
+}
+
+.favorites-empty h2 {
+  color: #333;
+  font-size: 28px;
+  margin-bottom: 20px;
+}
+
+.favorites-empty p {
+  font-size: 18px;
+  margin: 10px 0;
+}
+
+.favorites-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 25px;
+}
+
+.favorite-card {
+  background: white;
+  border-radius: 15px;
+  overflow: hidden;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+}
+
+.favorite-card:hover {
+  transform: translateY(-8px);
+  border-color: #ff6b9d;
+  box-shadow: 0 15px 35px rgba(255, 107, 157, 0.2);
+}
+
+.favorite-image {
+  width: 100%;
+  height: 220px;
+  overflow: hidden;
+  position: relative;
+}
+
+.favorite-image::before {
+  content: '❤️';
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 50%;
+  width: 35px;
+  height: 35px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  z-index: 1;
+}
+
+.favorite-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.favorite-card:hover .favorite-image img {
+  transform: scale(1.1);
+}
+
+.favorite-info {
+  padding: 20px;
+}
+
+.favorite-info h3 {
+  margin: 0 0 10px 0;
+  color: #333;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.favorite-category {
+  margin: 0 0 10px 0;
+  color: #ff6b9d;
+  font-weight: 600;
+  text-transform: capitalize;
+  font-size: 14px;
+}
+
+.admin-badge {
+  color: #667eea;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.favorite-date {
+  margin: 0;
+  color: #888;
+  font-size: 13px;
+}
+
+.favorite-actions {
+  padding: 15px 20px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.remove-favorite-btn {
+  width: 100%;
+  background: linear-gradient(135deg, #ff6b9d 0%, #c44569 100%);
+  color: white;
+  border: none;
+  padding: 12px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 14px;
+}
+
+.remove-favorite-btn:hover {
+  background: linear-gradient(135deg, #c44569 0%, #a5395c 100%);
+  transform: translateY(-2px);
+}
+
+@media (max-width: 768px) {
+  .favorites-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  
+  .favorites-container {
+    padding: 15px;
+  }
+  
+  .favorites-header h2 {
+    font-size: 24px;
+  }
+}
