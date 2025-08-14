@@ -4,7 +4,7 @@ class ApiService {
     // Development için local server, production için gerçek API
     this.baseURL = process.env.NODE_ENV === 'production' 
       ? 'https://your-api-server.com/api' 
-      : 'http://localhost:3001';
+      : 'http://185.137.98.59/';
   }
 
   async request(endpoint, options = {}) {
