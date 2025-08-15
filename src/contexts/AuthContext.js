@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import CrossDeviceSync from '../services/CrossDeviceSync';
 
 const AuthContext = createContext();
 
@@ -77,8 +78,44 @@ const fallbackToLocalStorage = (endpoint, options) => {
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [crossDeviceSync, setCrossDeviceSync] = useState(null);
 
   useEffect(() => {
+    // Cross-device sync initialize et
+    const syncService = new CrossDeviceSync();
+    setCrossDeviceSync(syncService);
+    
+    // Auto-sync başlat
+    syncService.startAutoSync(30); // 30 saniye interval
+    
+    // Cross-device event listener
+    const handleCrossDeviceSync = (event) => {
+      const { type, data } = event.detail;
+      
+      switch (type) {
+        case 'dataUpdated':
+          console.log('🔄 Cross-device data updated:', data);
+          // UI refresh trigger
+          window.location.reload();
+          break;
+          
+        case 'favoritesUpdated':
+          console.log('❤️ Favorites updated from another device');
+          // Update current user favorites
+          if (user) {
+            setUser(prev => ({ ...prev, favorites: data }));
+          }
+          break;
+          
+        case 'userLoggedOut':
+          console.log('👋 User logged out from another device');
+          // Optionally logout from this device too
+          break;
+      }
+    };
+
+    window.addEventListener('crossDeviceSync', handleCrossDeviceSync);
+
     // Uygulama başlarken kullanıcı bilgilerini kontrol et
     const initializeAuth = async () => {
       const token = localStorage.getItem('authToken');
@@ -86,9 +123,18 @@ export const AuthProvider = ({ children }) => {
       
       if (token && savedUser) {
         try {
-          // Token doğrula (opsiyonel)
-          setUser(JSON.parse(savedUser));
+          const userData = JSON.parse(savedUser);
+          setUser(userData);
           console.log('👤 User restored from localStorage');
+          
+          // Cross-device sync ile session'ı sync et
+          await syncService.syncData('session', {
+            userId: userData.id,
+            deviceId: syncService.deviceId,
+            loginTime: new Date().toISOString(),
+            active: true
+          }, 'update');
+          
         } catch (error) {
           console.error('❌ Failed to restore user:', error);
           localStorage.removeItem('authToken');
@@ -99,6 +145,14 @@ export const AuthProvider = ({ children }) => {
     };
     
     initializeAuth();
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('crossDeviceSync', handleCrossDeviceSync);
+      if (syncService) {
+        syncService.stopAutoSync();
+      }
+    };
   }, []);
 
   const login = async (email, password) => {
@@ -107,16 +161,49 @@ export const AuthProvider = ({ children }) => {
       
       // Admin kontrolü
       if (email === 'admin@admin.com' && password === 'admin123') {
+        const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         const adminUser = {
           id: 'admin',
           email: 'admin@admin.com',
           name: 'Administrator',
-          role: 'admin'
+          role: 'admin',
+          sessionId: sessionId,
+          loginTime: new Date().toISOString(),
+          deviceInfo: navigator.userAgent.substring(0, 100)
         };
+        
+        // Sunucuda session kaydet
+        try {
+          await apiRequest('/admin', {
+            method: 'POST',
+            body: JSON.stringify({
+              id: sessionId,
+              userId: 'admin',
+              sessionData: adminUser,
+              createdAt: new Date().toISOString(),
+              deviceInfo: navigator.userAgent.substring(0, 100),
+              ipAddress: 'unknown' // Client-side'da IP alınamaz
+            })
+          });
+        } catch (sessionError) {
+          console.warn('⚠️ Session server-side save failed, using localStorage');
+        }
+        
         setUser(adminUser);
         localStorage.setItem('currentUser', JSON.stringify(adminUser));
-        localStorage.setItem('authToken', 'admin-token');
-        console.log('🔑 Admin login successful');
+        localStorage.setItem('authToken', `admin-${sessionId}`);
+        console.log('🔑 Admin login successful with session:', sessionId);
+        
+        // Cross-device sync ile login'i bildir
+        if (crossDeviceSync) {
+          await crossDeviceSync.syncData('userLogin', {
+            userId: 'admin',
+            deviceId: crossDeviceSync.deviceId,
+            loginTime: new Date().toISOString(),
+            sessionId: sessionId
+          }, 'create');
+        }
+        
         return { success: true, user: adminUser };
       }
 
@@ -125,13 +212,36 @@ export const AuthProvider = ({ children }) => {
       const foundUser = users.find(u => u.email === email && u.password === password);
       
       if (foundUser) {
-        const userWithoutPassword = { ...foundUser };
+        const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const userWithoutPassword = { 
+          ...foundUser,
+          sessionId: sessionId,
+          loginTime: new Date().toISOString(),
+          deviceInfo: navigator.userAgent.substring(0, 100)
+        };
         delete userWithoutPassword.password;
+        
+        // Sunucuda session kaydet
+        try {
+          await apiRequest('/sessions', {
+            method: 'POST',
+            body: JSON.stringify({
+              id: sessionId,
+              userId: foundUser.id,
+              sessionData: userWithoutPassword,
+              createdAt: new Date().toISOString(),
+              deviceInfo: navigator.userAgent.substring(0, 100),
+              ipAddress: 'unknown'
+            })
+          });
+        } catch (sessionError) {
+          console.warn('⚠️ Session server-side save failed, using localStorage');
+        }
         
         setUser(userWithoutPassword);
         localStorage.setItem('currentUser', JSON.stringify(userWithoutPassword));
-        localStorage.setItem('authToken', `user-${foundUser.id}`);
-        console.log('🔑 User login successful');
+        localStorage.setItem('authToken', `user-${sessionId}`);
+        console.log('🔑 User login successful with session:', sessionId);
         return { success: true, user: userWithoutPassword };
       }
 
@@ -191,15 +301,49 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('currentUser');
-    localStorage.removeItem('authToken');
-    console.log('👋 User logged out');
+  const logout = async () => {
+    try {
+      if (user && crossDeviceSync) {
+        console.log('🔄 Notifying other devices about logout...');
+        
+        // Cross-device sync ile logout bildir
+        await crossDeviceSync.syncData('logout', {
+          userId: user.id,
+          deviceId: crossDeviceSync.deviceId,
+          logoutTime: new Date().toISOString()
+        }, 'logout');
+      }
+      
+      console.log('👋 Logging out user...');
+      setUser(null);
+      localStorage.removeItem('currentUser');
+      localStorage.removeItem('authToken');
+      
+      // Cross-device sync temizle
+      if (crossDeviceSync) {
+        crossDeviceSync.stop();
+        setCrossDeviceSync(null);
+      }
+      
+      console.log('✅ Logout completed');
+      
+    } catch (error) {
+      console.error('❌ Error during logout:', error);
+      // Logout'u yine de tamamla
+      setUser(null);
+      localStorage.removeItem('currentUser');
+      localStorage.removeItem('authToken');
+      
+      if (crossDeviceSync) {
+        crossDeviceSync.stop();
+        setCrossDeviceSync(null);
+      }
+      console.log('👋 User logged out');
+    }
   };
 
   const updateUserFavorites = async (favorites) => {
-    if (user) {
+    if (user && crossDeviceSync) {
       try {
         console.log('💾 Updating user favorites via API...');
         
@@ -214,6 +358,13 @@ export const AuthProvider = ({ children }) => {
           setUser(userWithFavorites);
           localStorage.setItem('currentUser', JSON.stringify(userWithFavorites));
           console.log('✅ Favorites updated successfully');
+          
+          // Cross-device sync ile bildir
+          await crossDeviceSync.syncData('favorites', {
+            userId: user.id,
+            favorites: favorites,
+            updatedAt: new Date().toISOString()
+          }, 'update');
         }
         
       } catch (error) {
@@ -224,6 +375,15 @@ export const AuthProvider = ({ children }) => {
         const updatedUser = { ...user, favorites };
         setUser(updatedUser);
         localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+        
+        // Cross-device sync ile queue'ya ekle (offline sync için)
+        if (crossDeviceSync) {
+          await crossDeviceSync.syncData('favorites', {
+            userId: user.id,
+            favorites: favorites,
+            updatedAt: new Date().toISOString()
+          }, 'update');
+        }
         
         // users listesinde de güncelle (localStorage fallback)
         try {

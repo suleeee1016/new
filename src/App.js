@@ -9,6 +9,7 @@ import ThreeJSExample from "./ThreeJSExample";
 
 const AppContent = () => {
   const { isAuthenticated, isAdmin, isLoading } = useAuth();
+  console.log('🔍 App State:', { isAuthenticated, isAdmin, isLoading });
   const [showFavorites, setShowFavorites] = useState(false);
 
   if (isLoading) {
@@ -32,7 +33,10 @@ const AppContent = () => {
       
       <main className="main-content">
         {isAdmin ? (
-          <AdminPanel />
+          <>
+            {console.log('🎯 Rendering AdminPanel...')}
+            <AdminPanel />
+          </>
         ) : showFavorites ? (
           <Favorites />
         ) : (

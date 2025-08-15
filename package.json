@@ -24,8 +24,10 @@
     "build": "NODE_OPTIONS=--openssl-legacy-provider react-scripts build",
     "test": "react-scripts test --env=jsdom",
     "eject": "react-scripts eject",
+    "setup-network": "bash setup-network.sh",
     "dev:api": "json-server --watch db.json --port 3001 --host 0.0.0.0",
     "dev:full": "concurrently \"npm run dev:api\" \"npm start\"",
+    "dev:network": "npm run setup-network && npm run dev:full",
     "prod:api": "json-server --watch db.json --port 3001 --host 0.0.0.0",
     "prod:build": "NODE_OPTIONS=--openssl-legacy-provider npm run build",
     "prod:start": "concurrently \"npm run prod:api\" \"serve -s build -l 3000\""

@@ -3,6 +3,9 @@ import { useAuth } from '../contexts/AuthContext';
 import './AdminPanel.css';
 
 const AdminPanel = () => {
+  console.log('🎯 AdminPanel component rendering...');
+  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+  console.log('🌐 API_BASE_URL:', API_BASE_URL);
   const { apiRequest } = useAuth();
   const [patterns, setPatterns] = useState([]);
   const [users, setUsers] = useState([]);
@@ -306,6 +309,13 @@ const AdminPanel = () => {
 
   return (
     <div className="admin-panel">
+      <div className="admin-debug">
+        <p>🔧 Debug: AdminPanel rendered successfully</p>
+        <p>📊 Patterns count: {patterns.length}</p>
+        <p>👥 Users count: {users.length}</p>
+        <p>🌐 API URL: {API_BASE_URL}</p>
+      </div>
+      
       <div className="admin-header">
         <h2>👑 Admin Paneli</h2>
         <div className="admin-tabs">
@@ -406,7 +416,8 @@ const AdminPanel = () => {
           
           {patterns.length === 0 ? (
             <div className="empty-state">
-              <p>Henüz desen eklenmemiş</p>
+              <p>🎨 Henüz desen eklenmemiş</p>
+              <p>API Bağlantısı: {API_BASE_URL || process.env.REACT_APP_API_URL || 'http://localhost:3001'}</p>
             </div>
           ) : (
             <div className="patterns-grid">
@@ -419,7 +430,9 @@ const AdminPanel = () => {
                     <h4>{pattern.name}</h4>
                     <p className="pattern-category">{pattern.category}</p>
                     <p className="pattern-date">
-                      {new Date(pattern.createdAt).toLocaleDateString('tr-TR')}
+                      {pattern.addedAt ? new Date(pattern.addedAt).toLocaleDateString('tr-TR') : 
+                       pattern.createdAt ? new Date(pattern.createdAt).toLocaleDateString('tr-TR') : 
+                       'Tarih belirtilmemiş'}
                     </p>
                   </div>
                   <div className="pattern-actions">
